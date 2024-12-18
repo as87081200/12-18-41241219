@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>代辦事項管理</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f9f9f9;
+        }
+        .container {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 600px;
+        }
+        .container h1 {
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .form-group {
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .form-group label {
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        .form-group input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1em;
+        }
+        .form-group button {
+            margin-left: 10px;
+            padding: 10px 20px;
+            background-color: #007BFF;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            font-size: 1em;
+            cursor: pointer;
+        }
+        .form-group button:hover {
+            background-color: #0056b3;
+        }
+        .response {
+            margin-top: 15px;
+            font-size: 0.9em;
+        }
+        .todo-list {
+            margin-top: 20px;
+        }
+        .todo-item {
+            border-bottom: 1px solid #ddd;
+            padding: 10px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .todo-item span {
+            flex: 1;
+            margin-right: 10px;
+        }
+        .todo-item input[type="text"] {
+            display: none;
+            margin-right: 10px;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        .todo-item input[type="checkbox"] {
+            margin-right: 10px;
+        }
+        .todo-item button {
+            margin-left: 10px;
+            padding: 5px 10px;
+            font-size: 0.9em;
+            background-color: #28a745;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .todo-item button.delete {
+            background-color: #dc3545;
+        }
+        .todo-item button:hover {
+            background-color: #218838;
+        }
+        .todo-item button.delete:hover {
+            background-color: #c82333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>代辦事項管理</h1>
+        <div class="form-group">
+            <label for="task">任務內容：</label>
+            <input type="text" id="task" placeholder="請輸入任務內容">
+            <button id="createBtn">新增代辦事項</button>
+        </div>
+        <div class="form-group">
+            <button id="getBtn">獲取所有代辦事項</button>
+        </div>
+        <div class="response" id="response"></div>
+        <div class="todo-list" id="todoList"></div>
+    </div>
+
+    <script>
+        const apiUrl = 'http://nfutest.pythonanywhere.com/todos';
+        const studentId = '41241219';
+
+        document.getElementById('createBtn').addEventListener('click', async () => {
+            const task = document.getElementById('task').value;
+            const responseDiv = document.getElementById('response');
+
+            if (!task) {
+                responseDiv.textContent = '請輸入任務內容。';
+                responseDiv.style.color = 'red';
+                return;
+            }
+
+            const data = { student_id: studentId, task: task };
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.status === 201) {
+                    const result = await response.json();
+                    responseDiv.textContent = `新增成功！ID: ${result.id}, 任務: ${result.task}, 完成狀態: ${result.completed}`;
+                    responseDiv.style.color = 'green';
+                    document.getElementById('task').value = '';
+                    fetchTodos();
+                } else {
+                    responseDiv.textContent = '新增失敗，請再試一次。';
+                    responseDiv.style.color = 'red';
+                }
+            } catch (error) {
+                responseDiv.textContent = '發生錯誤，請稍後再試。';
+                responseDiv.style.color = 'red';
+            }
+        });
+
+        document.getElementById('getBtn').addEventListener('click', fetchTodos);
+
+        async function fetchTodos() {
+            const todoList = document.getElementById('todoList');
+            const responseDiv = document.getElementById('response');
+
+            try {
+                const response = await fetch(`${apiUrl}?student_id=${studentId}`);
+
+                if (response.status === 200) {
+                    const result = await response.json();
+                    todoList.innerHTML = result.todos.map(todo => `
+                        <div class="todo-item" id="todo-${todo.id}">
+                            <span>${todo.task}</span>
+                            <input type="text" value="${todo.task}">
+                            <input type="checkbox" ${todo.completed ? 'checked' : ''}>
+                            <button onclick="editTask(${todo.id})">修改</button>
+                            <button style="display: none;" onclick="updateTask(${todo.id}, this)">保存</button>
+                            <button class="delete" onclick="deleteTask(${todo.id})">刪除</button>
+                        </div>
+                    `).join('');
+                    responseDiv.textContent = '代辦事項獲取成功';
+                    responseDiv.style.color = 'green';
+                } else {
+                    responseDiv.textContent = '獲取失敗，請再試一次。';
+                    responseDiv.style.color = 'red';
+                }
+            } catch (error) {
+                responseDiv.textContent = '發生錯誤，請稍後再試。';
+                responseDiv.style.color = 'red';
+            }
+        }
+
+        function editTask(id) {
+            const item = document.getElementById(`todo-${id}`);
+            const span = item.querySelector('span');
+            const input = item.querySelector('input[type="text"]');
+            const saveButton = item.querySelector('button[onclick^="updateTask"]');
+            const editButton = item.querySelector('button[onclick^="editTask"]');
+
+            span.style.display = 'none';
+            input.style.display = 'inline';
+            saveButton.style.display = 'inline';
+            editButton.style.display = 'none';
+        }
+
+        async function updateTask(id, button) {
+            const item = document.getElementById(`todo-${id}`);
+            const input = item.querySelector('input[type="text"]');
+            const checkbox = item.querySelector('input[type="checkbox"]');
+            const responseDiv = document.getElementById('response');
+
+            const data = {
+                student_id: studentId,
+                task: input.value,
+                completed: checkbox.checked
+            };
+
+            try {
+                const response = await fetch(`${apiUrl}/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.status === 200) {
+                    responseDiv.textContent = '修改成功！';
+                    responseDiv.style.color = 'green';
+                    fetchTodos();
+                } else {
+                    responseDiv.textContent = '修改失敗，請再試一次。';
+                    responseDiv.style.color = 'red';
+                }
+            } catch (error) {
+                responseDiv.textContent = '發生錯誤，請稍後再試。';
+                responseDiv.style.color = 'red';
+            }
+        }
+
+        async function deleteTask(id) {
+            const responseDiv = document.getElementById('response');
+
+            const data = { student_id: studentId };
+
+            try {
+                const response = await fetch(`${apiUrl}/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.status === 200) {
+                    const result = await response.json();
+                    responseDiv.textContent = result.message;
+                    responseDiv.style.color = 'green';
+                    fetchTodos();
+                } else {
+                    responseDiv.textContent = '刪除失敗，請再試一次。';
+                    responseDiv.style.color = 'red';
+                }
+            } catch (error) {
+                responseDiv.textContent = '發生錯誤，請稍後再試。';
+                responseDiv.style.color = 'red';
+            }
+        }
+
+        // Initialize the todo list on page load
+        fetchTodos();
+    </script>
+</body>
+</html>
